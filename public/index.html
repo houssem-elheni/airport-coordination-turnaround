@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispatcher Turn Around</title>
+    <style>
+        /* Base resets and fonts */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #eef5ff;
+            color: #333;
+        }
+        /* Layout container */
+        .container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        /* Sidebar list of flights */
+        .sidebar {
+            width: 28%;
+            min-width: 220px;
+            background-color: #004085;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 1rem;
+            background-color: #00366f;
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+        .flight-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .flight-item {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .flight-item:hover {
+            background-color: #0059b3;
+        }
+        .flight-item.active {
+            background-color: #0066cc;
+        }
+        .flight-item span {
+            display: block;
+        }
+        .flight-number {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        /* Larger flight number in the info bar */
+        #info-flightNumber {
+            font-size: 1.6rem;
+            font-weight: bold;
+        }
+        /* Red highlight for slot, flight plan and ETA values */
+        .red-value {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .flight-times {
+            font-size: 0.85rem;
+            opacity: 0.85;
+        }
+        /* Main detail area */
+        .details {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .flight-info {
+            background-color: #007bff;
+            color: #fff;
+            padding: 1rem;
+            border-radius: 6px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        .info-item {
+            margin: 0.5rem 0;
+        }
+        .info-item label {
+            font-weight: bold;
+            margin-right: 0.25rem;
+        }
+        /* Content area below info */
+        .content {
+            display: flex;
+            flex: 1;
+            margin-top: 1rem;
+        }
+        .checklists {
+            /* Narrower column to provide more space for instructions */
+            flex: 0 0 30%;
+            padding-right: 1rem;
+        }
+        .operations {
+            margin-top: 1rem;
+        }
+        .card {
+            background-color: #fff;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .card h3 {
+            margin-top: 0;
+            color: #004085;
+        }
+        .check-item {
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+        }
+        .check-item input[type="checkbox"] {
+            margin-right: 0.5rem;
+        }
+        .operations .operation-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        .operations .operation-row span {
+            flex: 1;
+        }
+        .operations button {
+            margin-left: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #fff;
+            font-size: 0.8rem;
+        }
+        .operations button.start {
+            background-color: #28a745;
+        }
+        .operations button.finish {
+            background-color: #dc3545;
+        }
+        .time-display {
+            margin-left: 0.5rem;
+            font-size: 0.75rem;
+            color: #333;
+        }
+        /* Send report button */
+        .send-report-btn {
+            background-color: #17a2b8;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .send-report-btn:hover {
+            background-color: #138496;
+        }
+        /* Right panel for diagram and remarks */
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .diagram-card {
+            /* Shrink the diagram height further so the instructions area can be larger */
+            flex: 0.2;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+        .diagram-placeholder {
+            flex: 1;
+            background-color: #e3ecff;
+            border: 2px dashed #aac8ff;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6d8ccb;
+            font-size: 1.2rem;
+            text-align: center;
+            padding: 1rem;
+        }
+        /* Instructions card replaces remarks. It shows read-only text and editing controls */
+        .instructions-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .instructions-text {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-size: 0.9rem;
+            background-color: #f8f9fa;
+            white-space: pre-wrap;
+        }
+        /* Display aircraft layout images side by side */
+        .diagram-images {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .diagram-images img {
+            flex: 1;
+            max-width: 100%;
+            height: auto;
+            max-height: 80px; /* limit image height to keep diagrams compact */
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        /* Display time next to each checklist item */
+        .check-time-display {
+            margin-left: 0.5rem;
+            font-size: 0.7rem;
+            color: #555;
+            /* ensure there is a click area even when no time text exists */
+            min-width: 40px;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        /* Hide the time display for checklist items marked as no‑time */
+        .check-item.no-time .check-time-display {
+            display: none;
+        }
+        .instruction-editor textarea {
+            width: 100%;
+            height: 100px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-size: 0.9rem;
+            resize: vertical;
+        }
+        .instruction-editor textarea:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        .add-btn {
+            margin-top: 0.5rem;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        .add-btn:hover {
+            background-color: #218838;
+        }
+        /* Slot and parking display in flight list */
+        .slot-parking {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+
+        /* New flight list layout */
+        .flight-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .flight-row2 {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+        /* Remove unused slot-park container styles now that we display parking and slot on one line */
+        .slot-park-container {
+            display: none;
+        }
+        .slot-park-container span {
+            display: none;
+        }
+        .eta-value {
+            display: none;
+        }
+        .times-value {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        /* New flight item layout: parking and slot information */
+        .slot-info {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        /* Date value in flight list */
+        .date-value {
+            font-size: 0.8rem;
+            color: #a8c8eb;
+            margin-right: 0.5rem;
+        }
+        /* Styling for slot and parking values in flight list */
+        .slot-label {
+            /* "Slot:" label uses default white color for contrast against dark background */
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+        .slot-value {
+            /* Slot time is displayed in red and bold */
+            color: #dc3545;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+        .parking-value {
+            font-weight: bold;
+            /* Make parking stand out: larger font and gold color */
+            color: #ffc107;
+            font-size: 1.2rem;
+        }
+
+        /* Highlight the flight number with a brighter colour for importance */
+        .flight-number {
+            color: #00bfff;
+        }
+
+        /* STA and ETA display in flight list with distinct colours */
+        .sta-time {
+            color: #a8c8eb;
+        }
+        .eta-time {
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        /* Footer in sidebar for company branding and signature */
+        .sidebar-footer {
+            padding: 0.5rem;
+            background-color: #003a74;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+        .sidebar-footer .company-name {
+            color: #00bfff;
+            font-weight: bold;
+            font-size: 1rem;
+            display: block;
+        }
+        .sidebar-footer .signature {
+            color: #e0e0e0;
+            font-size: 0.7rem;
+            display: block;
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login screen (shown first) -->
+    <div id="login-screen" style="position: fixed; inset: 0; background: #004085; display: flex; align-items: center; justify-content: center; color: #fff; z-index: 9999; font-family: Arial, Helvetica, sans-serif;">
+        <div style="background:#fff; color:#333; padding:2rem; border-radius:8px; min-width:280px; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
+            <h2 style="margin-top:0; text-align:center; color:#004085;">TAV-ADP Turnaround Login</h2>
+            <div style="margin-bottom:0.75rem;">
+                <label for="login-email" style="display:block; font-size:0.9rem; margin-bottom:0.25rem;">Email</label>
+                <input id="login-email" type="email" style="width:100%; padding:0.4rem; border-radius:4px; border:1px solid #ccc;" />
+            </div>
+            <div style="margin-bottom:0.75rem;">
+                <label for="login-password" style="display:block; font-size:0.9rem; margin-bottom:0.25rem;">Password</label>
+                <input id="login-password" type="password" style="width:100%; padding:0.4rem; border-radius:4px; border:1px solid #ccc;" />
+            </div>
+            <div id="login-error" style="color:#dc3545; font-size:0.8rem; min-height:1rem; margin-bottom:0.5rem;"></div>
+            <button id="login-button" style="width:100%; padding:0.5rem; background:#007bff; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+                Log in
+            </button>
+        </div>
+    </div>
+    <!-- Main app, hidden until logged in -->
+    <div id="app-container" class="container" style="display:none;">
+        <div class="sidebar">
+            <div class="sidebar-header" style="display:flex; flex-direction:column;">
+                <span style="font-size:1.25rem;font-weight:bold;">Flights</span>
+                <!-- Sorting control -->
+                <select id="sort-select" style="margin-top:0.5rem; padding:0.25rem; font-size:0.8rem;">
+                    <option value="sta">Sort by STA</option>
+                    <option value="slot">Sort by Slot</option>
+                    <option value="parking">Sort by Parking</option>
+                    <option value="std">Sort by STD</option>
+                    <option value="eta">Sort by ETA</option>
+                </select>
+
+                <!-- Date filter: defaults to today's date.  Users can select a different
+                     date to view flights for another day. -->
+                <input type="date" id="date-filter" style="margin-top:0.5rem; padding:0.25rem; font-size:0.8rem;" />
+            </div>
+            <div class="flight-list">
+                <!-- Flight items will be injected here by Firebase script -->
+            </div>
+            <!-- Company branding and signature footer -->
+            <div class="sidebar-footer">
+                <span class="company-name">TAV-ADP</span>
+                <span class="signature">Houssem Elheni</span>
+            </div>
+        </div>
+        <div class="details">
+            <div class="flight-info">
+                <!-- Display date and flight number without labels -->
+                <div class="info-item">
+                    <span id="info-date" class="info-date">--</span>
+                </div>
+                <div class="info-item">
+                    <span id="info-flightNumber" class="info-flight-number">--</span>
+                </div>
+                <!-- Display the aircraft registration below the flight number -->
+                <div class="info-item">
+                    <label>Reg:</label> <span id="info-registration">--</span>
+                </div>
+                <!-- Flight plan in red -->
+                <div class="info-item">
+                    <label>Flight Plan:</label> <span id="info-flightPlan" class="red-value">--</span>
+                </div>
+                <!-- Show STA before STD and include slot time in red -->
+                <div class="info-item">
+                    <label>STA:</label> <span id="info-sta">--</span>
+                </div>
+                <div class="info-item">
+                    <label>STD:</label> <span id="info-std">--</span>
+                </div>
+                <div class="info-item">
+                    <label>Slot:</label> <span id="info-slot" class="red-value">--</span>
+                </div>
+            </div>
+            <div class="content">
+                <!-- Checklists and operations column -->
+                <div class="checklists">
+                    <div class="card">
+                        <h3>Checklist</h3>
+                        <div class="check-item no-time">
+                            <input type="checkbox" id="fod" />
+                            <label for="fod">FOD checks</label>
+                            <span class="check-time-display"></span>
+                        </div>
+                        <div class="check-item no-time">
+                            <input type="checkbox" id="chocks" />
+                            <label for="chocks">Chocks installed</label>
+                            <span class="check-time-display"></span>
+                        </div>
+                        <div class="check-item no-time">
+                            <input type="checkbox" id="cones" />
+                            <label for="cones">Cones in place</label>
+                            <span class="check-time-display"></span>
+                        </div>
+                        <div class="check-item no-time">
+                            <input type="checkbox" id="security" />
+                            <label for="security">Security turn around completed</label>
+                            <span class="check-time-display"></span>
+                        </div>
+                        <!-- Doors open is recorded immediately after security completion -->
+                        <div class="check-item">
+                            <input type="checkbox" id="doorsOpen" />
+                            <label for="doorsOpen">Doors open</label>
+                            <span class="check-time-display"></span>
+                        </div>
+                        <!-- Additional checklist items -->
+                        <div class="check-item">
+                            <input type="checkbox" id="toilet" />
+                            <label for="toilet">Toilet service requested</label>
+                            <span class="check-time-display"></span>
+                        </div>
+                        <div class="check-item">
+                            <input type="checkbox" id="water" />
+                            <label for="water">Water service requested</label>
+                            <span class="check-time-display"></span>
+                        </div>
+                        <!-- Doors closed is the final step of the turn around -->
+                        <div class="check-item">
+                            <input type="checkbox" id="doorsClosed" />
+                            <label for="doorsClosed">Doors closed</label>
+                            <span class="check-time-display"></span>
+                        </div>
+                    </div>
+                    <div class="card operations">
+                        <h3>Operations</h3>
+                        <div class="operation-row" data-op="unloading">
+                            <span>Unloading</span>
+                            <button class="start">Start</button>
+                            <button class="finish">Finish</button>
+                            <span class="time-display"></span>
+                        </div>
+        <div class="operation-row" data-op="disembarking">
+                            <span>Disembarking</span>
+                            <button class="start">Start</button>
+                            <button class="finish">Finish</button>
+                            <span class="time-display"></span>
+                        </div>
+                        <div class="operation-row" data-op="cleaning">
+                            <span>Cleaning</span>
+                            <button class="start">Start</button>
+                            <button class="finish">Finish</button>
+                            <span class="time-display"></span>
+                        </div>
+                        <div class="operation-row" data-op="loading">
+                            <span>Loading</span>
+                            <button class="start">Start</button>
+                            <button class="finish">Finish</button>
+                            <span class="time-display"></span>
+                        </div>
+                        <div class="operation-row" data-op="boarding">
+                            <span>Boarding</span>
+                            <button class="start">Start</button>
+                            <button class="finish">Finish</button>
+                            <span class="time-display"></span>
+                        </div>
+                        <div class="operation-row" data-op="gpu">
+                            <span>GPU</span>
+                            <button class="start">Start</button>
+                            <button class="finish">Finish</button>
+                            <span class="time-display"></span>
+                        </div>
+                        <div class="operation-row" data-op="acu">
+                            <span>ACU</span>
+                            <button class="start">Start</button>
+                            <button class="finish">Finish</button>
+                            <span class="time-display"></span>
+                        </div>
+                        <div class="operation-row" data-op="pushBack">
+                            <span>Push Back</span>
+                            <button class="start">Start</button>
+                            <button class="finish">Finish</button>
+                            <span class="time-display"></span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Right panel: diagram and remarks -->
+                <div class="right-panel">
+                    <div class="card diagram-card">
+                        <h3 id="layout-title">Aircraft Layout</h3>
+                        <!-- Display two aircraft layout images side by side -->
+                        <div class="diagram-images">
+                            <img src="1_box.png" alt="Aircraft layout 1">
+                            <img src="2_box.png" alt="Aircraft layout 2">
+                        </div>
+                    </div>
+                    <!-- Instructions and notes card -->
+                    <div class="card instructions-card">
+                        <h3>Airline Instructions</h3>
+                        <div class="instructions-text" id="airline-instructions">Select a flight to view airline instructions.</div>
+                        <h3 style="margin-top:1rem;">Flight Notes / Remarks</h3>
+                        <!-- Note editor is hidden until a flight is selected.  It allows dispatchers to
+                             record free‑form remarks for each flight and synchronises them with the
+                             coordination app via Firebase. -->
+                        <div class="instruction-editor" id="note-editor" style="display:none;">
+                            <textarea id="note-input" style="width:100%; height:100px; border:1px solid #ccc; border-radius:4px; padding:0.5rem; font-size:0.9rem; resize:vertical;"></textarea>
+                            <div style="margin-top:0.5rem; text-align:right;">
+                                <button id="save-note-btn" class="add-btn">Save</button>
+                                <button id="cancel-note-btn" class="add-btn" style="background-color:#dc3545;">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Send report button at the bottom of right panel -->
+                    <div style="text-align:center; margin-top: 0.5rem;">
+                        <button id="send-report-btn" class="send-report-btn">Send Report</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+</div>
+<!-- Firebase and app logic -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+
+    // Firebase configuration for your project (provided by the user).  Do not expose
+    // your private service account keys here; these are client-side parameters
+    // suitable for use in web apps.
+    const firebaseConfig = {
+      apiKey: "AIzaSyCo5fKB18QJX2rhGtC6yraGumJq63CM9xw",
+      authDomain: "turn-around-fa74b.firebaseapp.com",
+      databaseURL: "https://turn-around-fa74b-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "turn-around-fa74b",
+      storageBucket: "turn-around-fa74b.firebasestorage.app",
+      messagingSenderId: "940556220087",
+      appId: "1:940556220087:web:788096ff1bac2d51debf32",
+      measurementId: "G-0W95QV4024"
+    };
+
+    // Initialize Firebase and sign in anonymously so we can read/write data.
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+    const auth = getAuth(app);
+    // Enforce per-session persistence so credentials are not retained after closing the tab
+    setPersistence(auth, browserSessionPersistence).catch((err) => {
+      console.error('Error setting auth persistence', err);
+    });
+
+    // Global state: dictionary of flights and currently selected flight ID
+    let flightsData = {};
+    let selectedFlightId = null;
+    // Unsubscribe functions for flight operations and airline instructions listeners
+    let flightOpsUnsubscribe = null;
+    let airlineInstrUnsubscribe = null;
+    // Current operations data for selected flight (used for editing times)
+    let currentOpsData = {};
+    // Sorting key for flight list (sta, slot, parking, std, eta)
+    let sortKey = 'sta';
+
+    // Flag to ensure demo data is populated only once per page load
+    let demoDataPopulated = false;
+
+    /**
+     * Populate random but logical operation and checklist times for demonstration purposes.
+     * This function iterates over flights scheduled in November (month index 10) of the current
+     * calendar year and writes sample checkTimes and operations times into Firebase.  The
+     * generated times are relative to each flight's STA (or STD if STA is absent).  For example,
+     * chocks are placed a few minutes after arrival, loading begins shortly before the STD, etc.
+     * The values are intended for demonstration only and can be overwritten by the user.  This
+     * function will run once automatically after the flights list is loaded if there are flights
+     * in November.
+     */
+    function populateDemoData() {
+      if (demoDataPopulated) return;
+      const nowYear = new Date().getFullYear();
+      Object.entries(flightsData || {}).forEach(([fid, flight]) => {
+        const dateStr = flight.sta || flight.std;
+        if (!dateStr) return;
+        const baseDate = new Date(dateStr);
+        if (isNaN(baseDate.getTime())) return;
+        // Only populate flights scheduled in November of the current year
+        if (baseDate.getFullYear() !== nowYear || baseDate.getMonth() !== 10) return;
+        const stdDate = flight.std ? new Date(flight.std) : null;
+        function addMinutes(dt, mins) {
+          return new Date(dt.getTime() + mins * 60000);
+        }
+        function toIso(dateObj) {
+          return dateObj.toISOString();
+        }
+        const arrival = baseDate;
+        const checkTimes = {
+          fod: toIso(addMinutes(arrival, -20)),
+          chocks: toIso(addMinutes(arrival, 2)),
+          cones: toIso(addMinutes(arrival, 4)),
+          security: toIso(addMinutes(arrival, 10)),
+          doorsOpen: toIso(addMinutes(arrival, 12)),
+          toilet: toIso(addMinutes(arrival, 15)),
+          water: toIso(addMinutes(arrival, 18)),
+          doorsClosed: stdDate ? toIso(addMinutes(stdDate, -10)) : toIso(addMinutes(arrival, 40))
+        };
+        const operations = {
+          unloading: {
+            startTime: toIso(addMinutes(arrival, 5)),
+            finishTime: toIso(addMinutes(arrival, 20))
+          },
+          disembarking: {
+            startTime: toIso(addMinutes(arrival, 6)),
+            finishTime: toIso(addMinutes(arrival, 16))
+          },
+          cleaning: {
+            startTime: toIso(addMinutes(arrival, 20)),
+            finishTime: toIso(addMinutes(arrival, 50))
+          },
+          loading: {
+            startTime: stdDate ? toIso(addMinutes(stdDate, -40)) : toIso(addMinutes(arrival, 25)),
+            finishTime: stdDate ? toIso(addMinutes(stdDate, -10)) : toIso(addMinutes(arrival, 35))
+          },
+          boarding: {
+            startTime: stdDate ? toIso(addMinutes(stdDate, -45)) : toIso(addMinutes(arrival, 30)),
+            finishTime: stdDate ? toIso(addMinutes(stdDate, -15)) : toIso(addMinutes(arrival, 40))
+          },
+          gpu: {
+            startTime: toIso(addMinutes(arrival, 3)),
+            finishTime: stdDate ? toIso(addMinutes(stdDate, -20)) : toIso(addMinutes(arrival, 30))
+          },
+          acu: {
+            startTime: toIso(addMinutes(arrival, 4)),
+            finishTime: toIso(addMinutes(arrival, 14))
+          },
+          pushBack: {
+            startTime: stdDate ? toIso(addMinutes(stdDate, -15)) : toIso(addMinutes(arrival, 35)),
+            finishTime: stdDate ? toIso(addMinutes(stdDate, -10)) : toIso(addMinutes(arrival, 40))
+          }
+        };
+        const updates = {};
+        updates['flightOperations/' + fid + '/checkTimes'] = checkTimes;
+        updates['flightOperations/' + fid + '/operations'] = operations;
+        update(ref(database), updates).catch((err) => console.error('Error populating demo data', err));
+      });
+      demoDataPopulated = true;
+    }
+
+    /**
+     * Normalize user‑inputted time to HH:MM format.
+     * Accepts inputs like '20:20', '2020', '  20 20 ', etc.
+     * Returns an empty string if the input cannot be parsed.
+     */
+    function normalizeTimeInput(str) {
+      const cleaned = String(str || '').trim();
+      if (!cleaned) return '';
+      // Remove all non‑digit characters except colon
+      const digits = cleaned.replace(/[^0-9]/g, '');
+      if (digits.length === 4) {
+        const hh = digits.substring(0, 2);
+        const mm = digits.substring(2, 4);
+        return `${hh}:${mm}`;
+      }
+      if (cleaned.includes(':')) {
+        const parts = cleaned.split(':');
+        if (parts.length >= 2) {
+          const hh = parts[0].padStart(2, '0');
+          const mm = parts[1].padStart(2, '0');
+          return `${hh}:${mm}`;
+        }
+      }
+      return '';
+    }
+    /**
+     * Date filter for flights.  By default, we show only today's flights.
+     * The value is a string in format YYYY-MM-DD (local date).  Users can
+     * change this via the date picker in the sidebar.  When empty, no
+     * filtering is performed and all flights are shown.
+     */
+    let filterDate = (() => {
+      // Compute today's date in local timezone (Africa/Tunis) as YYYY-MM-DD
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    })();
+
+    // Track the original flight notes for the currently selected flight.  This
+    // allows the cancel button in the note editor to restore the previous
+    // value.
+    let originalNotes = '';
+
+    // Track if the flights listener has been attached after user authentication
+    let flightsListenerAttached = false;
+
+    // ----- Login handling -----
+    const loginBtn = document.getElementById('login-button');
+    const loginErrorEl = document.getElementById('login-error');
+    if (loginBtn) {
+      loginBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const emailEl = document.getElementById('login-email');
+        const passwordEl = document.getElementById('login-password');
+        const email = (emailEl?.value || '').trim();
+        const password = (passwordEl?.value || '').trim();
+        if (loginErrorEl) loginErrorEl.textContent = '';
+        if (!email || !password) {
+          if (loginErrorEl) loginErrorEl.textContent = 'Please enter email and password.';
+          return;
+        }
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+        } catch (err) {
+          console.error('Login error', err);
+          if (loginErrorEl) loginErrorEl.textContent = 'Login failed. Check email/password.';
+        }
+      });
+    }
+
+    // Handle auth state changes to show/hide the app and attach the flights listener
+    onAuthStateChanged(auth, (user) => {
+      const loginScreenEl = document.getElementById('login-screen');
+      const appContainerEl = document.getElementById('app-container');
+      if (user) {
+        if (loginScreenEl) loginScreenEl.style.display = 'none';
+        if (appContainerEl) appContainerEl.style.display = 'flex';
+        // Attach flights listener once
+        if (!flightsListenerAttached) {
+          flightsListenerAttached = true;
+          const flightsRef = ref(database, 'flights');
+          onValue(flightsRef, (snapshot) => {
+            flightsData = snapshot.val() || {};
+            populateDemoData();
+            renderFlightList();
+            if (selectedFlightId) {
+              selectFlight(selectedFlightId);
+            }
+          }, (error) => {
+            console.error('Error reading flights:', error);
+          });
+        }
+      } else {
+        // user logged out
+        if (loginScreenEl) loginScreenEl.style.display = 'flex';
+        if (appContainerEl) appContainerEl.style.display = 'none';
+        flightsListenerAttached = false;
+      }
+    });
+
+    // Render the list of flights in the sidebar. Sort by STA ascending.
+    function renderFlightList() {
+      const flightListEl = document.querySelector('.flight-list');
+      flightListEl.innerHTML = '';
+      let entries = Object.entries(flightsData);
+      // Filter flights by date if filterDate is set.  We compare the date part
+      // of STA or STD with the selected filterDate (YYYY-MM-DD).  If no
+      // STA/STD is available, the flight is excluded when a filter is active.
+      if (filterDate) {
+        entries = entries.filter(([fid, flight]) => {
+          // Determine the local date string for comparison
+          let flightDate = '';
+          if (flight) {
+            const iso = flight.sta || flight.std || '';
+            if (iso) {
+              const d = new Date(iso);
+              const y = d.getFullYear();
+              const m = String(d.getMonth() + 1).padStart(2, '0');
+              const day = String(d.getDate()).padStart(2, '0');
+              flightDate = `${y}-${m}-${day}`;
+            }
+          }
+          // Show the flight only if its date matches the filter
+          return flightDate === filterDate;
+        });
+      }
+      // Sort entries based on the selected key with STA as a secondary fallback.
+      entries.sort((a, b) => {
+        const fA = a[1];
+        const fB = b[1];
+        // Helper to get value by key; returns empty string if undefined
+        function getVal(f, key) {
+          if (!f) return '';
+          const v = f[key] || '';
+          return v;
+        }
+        let valA = '';
+        let valB = '';
+        switch (sortKey) {
+          case 'slot':
+            valA = getVal(fA, 'slot');
+            valB = getVal(fB, 'slot');
+            break;
+          case 'parking':
+            valA = getVal(fA, 'parking');
+            valB = getVal(fB, 'parking');
+            break;
+          case 'std':
+            valA = getVal(fA, 'std');
+            valB = getVal(fB, 'std');
+            break;
+          case 'eta':
+            valA = getVal(fA, 'eta');
+            valB = getVal(fB, 'eta');
+            break;
+          case 'sta':
+          default:
+            valA = getVal(fA, 'sta');
+            valB = getVal(fB, 'sta');
+            break;
+        }
+        // Determine if values exist (non-empty)
+        const hasA = valA && valA.toString().trim() !== '';
+        const hasB = valB && valB.toString().trim() !== '';
+        if (sortKey !== 'sta') {
+          if (hasA && hasB) {
+            // Compare values lexicographically
+            const cmp = valA.toString().localeCompare(valB.toString());
+            if (cmp !== 0) return cmp;
+          } else if (hasA && !hasB) {
+            // A has value, B doesn't -> A comes first
+            return -1;
+          } else if (!hasA && hasB) {
+            // B has value, A doesn't -> B comes first
+            return 1;
+          }
+        } else {
+          // Sorting by STA directly
+          const cmpSta = (valA || '').toString().localeCompare((valB || '').toString());
+          if (cmpSta !== 0) return cmpSta;
+        }
+        // Fallback: compare by STA (base sort). Undefined values go last.
+        const baseA = getVal(fA, 'sta');
+        const baseB = getVal(fB, 'sta');
+        const hasBaseA = baseA && baseA.toString().trim() !== '';
+        const hasBaseB = baseB && baseB.toString().trim() !== '';
+        if (hasBaseA && hasBaseB) {
+          return baseA.toString().localeCompare(baseB.toString());
+        } else if (hasBaseA && !hasBaseB) {
+          return -1;
+        } else if (!hasBaseA && hasBaseB) {
+          return 1;
+        }
+        return 0;
+      });
+      entries.forEach(([id, flight]) => {
+        const item = document.createElement('div');
+        item.className = 'flight-item';
+        item.dataset.flightId = id;
+        if (id === selectedFlightId) item.classList.add('active');
+        // First row: flight number on left; parking and slot information on the right
+        const row1 = document.createElement('div');
+        row1.className = 'flight-row';
+        // Flight number
+        const numSpan = document.createElement('span');
+        numSpan.className = 'flight-number';
+        numSpan.textContent = flight.flightNumber || id;
+        // Container for parking and slot
+        const slotInfo = document.createElement('div');
+        slotInfo.className = 'slot-info';
+        // Parking value (bold)
+        const parkSpan = document.createElement('span');
+        parkSpan.className = 'parking-value';
+        parkSpan.textContent = flight.parking || '--';
+        // Slot label and value in red
+        const slotLabelSpan = document.createElement('span');
+        slotLabelSpan.className = 'slot-label';
+        slotLabelSpan.textContent = 'Slot:';
+        const slotValueSpan = document.createElement('span');
+        slotValueSpan.className = 'slot-value';
+        slotValueSpan.textContent = flight.slot || '--';
+        slotInfo.appendChild(parkSpan);
+        slotInfo.appendChild(slotLabelSpan);
+        slotInfo.appendChild(slotValueSpan);
+        row1.appendChild(numSpan);
+        row1.appendChild(slotInfo);
+        // Second row: show ETA (if available) instead of date.  If no ETA is provided,
+        // leave the row empty.  We avoid parsing ETA as a Date because ETA may
+        // be a free‑form string (e.g. '1130').
+        const row2 = document.createElement('div');
+        row2.className = 'flight-row2';
+        let etaText = '';
+        if (flight.eta) {
+          const str = String(flight.eta).trim();
+          if (str) {
+            etaText = str;
+          }
+        }
+        if (etaText) {
+          const etaSpan = document.createElement('span');
+          etaSpan.className = 'eta-time';
+          // Prepend label 'ETA' and space for clarity
+          etaSpan.textContent = 'ETA ' + etaText;
+          row2.appendChild(etaSpan);
+        }
+        // Append rows to item
+        item.appendChild(row1);
+        item.appendChild(row2);
+        // Click handler
+        item.addEventListener('click', () => selectFlight(id));
+        flightListEl.appendChild(item);
+      });
+    }
+
+    // When a flight is selected, show its details in the info panel
+    function selectFlight(flightId) {
+      selectedFlightId = flightId;
+      renderFlightList();
+      const flight = flightsData[flightId];
+      if (!flight) return;
+      // Ensure the note editor is visible when a flight is selected.  The
+      // editor allows dispatchers to write remarks for the flight.  It
+      // remains hidden when no flight is selected.
+      const noteEditorEl = document.getElementById('note-editor');
+      if (noteEditorEl) {
+        noteEditorEl.style.display = 'block';
+      }
+      // Update displayed flight info
+      document.getElementById('info-flightNumber').textContent = flight.flightNumber || flightId;
+      // Show aircraft registration if available
+      const regEl = document.getElementById('info-registration');
+      if (regEl) {
+        regEl.textContent = flight.registration || '';
+      }
+      // Display date (day/month/year) from STA or STD using 24h locale (dd/mm/yyyy).
+      let dateStr = '';
+      if (flight.sta) {
+        const d = new Date(flight.sta);
+        // Format to DD/MM/YYYY using toLocaleDateString with 'fr-FR' locale to ensure day-month-year order
+        dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString('fr-FR') : '';
+      } else if (flight.std) {
+        const d = new Date(flight.std);
+        dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString('fr-FR') : '';
+      }
+      document.getElementById('info-date').textContent = dateStr;
+      // Display times only (HH:MM)
+      document.getElementById('info-std').textContent = flight.std ? new Date(flight.std).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false}) : '';
+      document.getElementById('info-sta').textContent = flight.sta ? new Date(flight.sta).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false}) : '';
+      // Flight plan is displayed in red; other fields like slot, ETA and parking are now shown only in the flight list,
+      // so we no longer populate them here.
+      document.getElementById('info-flightPlan').textContent = flight.flightPlan || '';
+      // Update slot time (displayed in red)
+      document.getElementById('info-slot').textContent = flight.slot || '';
+      // Load airline instructions if airline code exists
+      // Clean up previous instruction listener
+      if (airlineInstrUnsubscribe) {
+        airlineInstrUnsubscribe();
+        airlineInstrUnsubscribe = null;
+      }
+      const airlineCode = flight.airlineCode || flight.airline || '';
+      const aircraftType = flight.aircraftType || '';
+      // Update aircraft layout title with aircraft type if provided
+      const layoutTitleEl = document.getElementById('layout-title');
+      if (layoutTitleEl) {
+        if (aircraftType) {
+          layoutTitleEl.textContent = 'Aircraft Layout (' + aircraftType + ')';
+        } else {
+          layoutTitleEl.textContent = 'Aircraft Layout';
+        }
+      }
+        if (airlineCode) {
+        const instrRef = ref(database, 'airlineInstructions/' + airlineCode);
+        airlineInstrUnsubscribe = onValue(instrRef, (snap) => {
+          const data = snap.val();
+          let instr = '';
+          if (data) {
+            // Determine per‑type instructions.  Accept both exact and numeric variants
+            let typeInstr = '';
+            if (data.types && aircraftType) {
+              // Try exact match first
+              if (data.types[aircraftType] && data.types[aircraftType].instructions) {
+                typeInstr = data.types[aircraftType].instructions;
+              } else {
+                // If aircraftType is numeric (e.g. '738' or '738.0'), also try the
+                // integer form (738) and the float form with one decimal (e.g. 738.0)
+                const num = parseFloat(aircraftType);
+                if (!isNaN(num)) {
+                  const altKey = String(num);
+                  if (!typeInstr && data.types[altKey] && data.types[altKey].instructions) {
+                    typeInstr = data.types[altKey].instructions;
+                  }
+                  // If original had no decimal, try with '.0'
+                  const altKeyDot = aircraftType.includes('.') ? aircraftType.split('.')[0] : aircraftType + '.0';
+                  if (!typeInstr && data.types[altKeyDot] && data.types[altKeyDot].instructions) {
+                    typeInstr = data.types[altKeyDot].instructions;
+                  }
+                }
+              }
+            }
+            if (typeInstr) {
+              instr = typeInstr;
+            } else {
+              // Fallback to general instructions
+              if (typeof data === 'string') {
+                instr = data;
+              } else if (typeof data === 'object' && data.instructions) {
+                instr = data.instructions;
+              }
+            }
+          }
+          const elem = document.getElementById('airline-instructions');
+          elem.textContent = instr || 'No instructions.';
+        });
+      } else {
+        document.getElementById('airline-instructions').textContent = 'No instructions.';
+      }
+      // Remove previous operations listener
+      if (flightOpsUnsubscribe) {
+        flightOpsUnsubscribe();
+      }
+      // Subscribe to operations/checklist/remarks for this flight
+      const opsRef = ref(database, 'flightOperations/' + flightId);
+      flightOpsUnsubscribe = onValue(opsRef, (snapshot) => {
+        const opsData = snapshot.val() || {};
+        currentOpsData = opsData;
+        // Update checkboxes based on remote data
+        const checklist = opsData.checklist || {};
+        document.querySelectorAll('.check-item input[type="checkbox"]').forEach((cb) => {
+          cb.checked = !!checklist[cb.id];
+        });
+        // Update check times for each item
+        const checkTimes = opsData.checkTimes || {};
+        document.querySelectorAll('.check-item').forEach((row) => {
+          const cb = row.querySelector('input[type="checkbox"]');
+          const timeSpan = row.querySelector('.check-time-display');
+          const iso = checkTimes[cb.id];
+          if (iso) {
+          const t = new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false});
+            timeSpan.textContent = t;
+          } else {
+            timeSpan.textContent = '';
+          }
+        });
+        // Update operation times
+        const operations = opsData.operations || {};
+        document.querySelectorAll('.operation-row').forEach((row) => {
+          const opName = row.dataset.op;
+          const times = operations[opName] || {};
+          const start = times.startTime;
+          const finish = times.finishTime;
+          const timeSpan = row.querySelector('.time-display');
+          let text = '';
+          if (start) {
+            const s = new Date(start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false});
+            text += s;
+          }
+          if (finish) {
+            const f = new Date(finish).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false});
+            text += text ? ' - ' + f : ' - ' + f;
+          }
+          timeSpan.textContent = text;
+        });
+        // Update remarks for this flight
+        const remarks = opsData.remarks || '';
+        const noteInput = document.getElementById('note-input');
+        // Always update the textarea value to reflect the current remarks
+        if (noteInput) {
+          noteInput.value = remarks;
+        }
+        // Update the original notes tracker for the cancel button
+        originalNotes = remarks;
+      });
+    }
+
+    // The flights listener is attached after successful login in onAuthStateChanged
+
+    // Setup listeners for checklists, operations, remarks and report
+    function setupChecklistListeners() {
+      // For each checklist row, attach listeners to both the checkbox and the time
+      // display.  When the checkbox state changes, we record the current time
+      // in checkTimes.  When the time display is clicked, allow the user to
+      // manually edit the time (HH:MM) and update it in Firebase.
+      document.querySelectorAll('.check-item').forEach((row) => {
+        const cb = row.querySelector('input[type="checkbox"]');
+        if (!cb) return;
+        const itemName = cb.id;
+        const timeSpan = row.querySelector('.check-time-display');
+        // When the checkbox is toggled, set or clear the check time
+        cb.addEventListener('change', () => {
+          if (!selectedFlightId) return;
+          const val = cb.checked;
+          const nowIso = new Date().toISOString();
+          const updates = {};
+          updates['checklist/' + itemName] = val;
+          // Always update the time when the user toggles the checkbox
+          updates['checkTimes/' + itemName] = nowIso;
+          update(ref(database, 'flightOperations/' + selectedFlightId), updates)
+            .catch((error) => console.error('Error updating checklist', error));
+        });
+        // Allow editing of existing check time by double clicking the displayed time.
+        // We parse user input (e.g. 2020 -> 20:20) and update the corresponding ISO timestamp.
+        if (timeSpan) {
+          timeSpan.addEventListener('dblclick', () => {
+            if (!selectedFlightId) return;
+            // Retrieve current check time from currentOpsData
+            const checkTimes = (currentOpsData && currentOpsData.checkTimes) || {};
+            const currentIso = checkTimes[itemName] || '';
+            // Determine the base date: use existing date from currentIso; otherwise derive from flight date; fallback to today
+            let baseDate = '';
+            if (currentIso) {
+              baseDate = currentIso.split('T')[0];
+            } else {
+              const flight = flightsData[selectedFlightId];
+              if (flight && (flight.sta || flight.std)) {
+                const d = new Date(flight.sta || flight.std);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                baseDate = `${y}-${m}-${day}`;
+              } else {
+                const today = new Date();
+                const y = today.getFullYear();
+                const m = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                baseDate = `${y}-${m}-${day}`;
+              }
+            }
+            // Current time string for prompt (always 24h format)
+            const currentTime = currentIso ? new Date(currentIso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false}) : '';
+            // Prompt user for new time; allow input like 2020 or 20:20
+            const newInput = prompt('Edit check time (HHMM or HH:MM)', currentTime) || currentTime;
+            const normalized = normalizeTimeInput(newInput);
+            if (!normalized) return;
+            const [hh, mm] = normalized.split(':');
+            const dt = new Date(baseDate);
+            dt.setHours(parseInt(hh, 10), parseInt(mm, 10), 0, 0);
+            const newIso = dt.toISOString();
+            update(ref(database, 'flightOperations/' + selectedFlightId + '/checkTimes/' + itemName), newIso)
+              .catch((err) => console.error('Error updating check time', err));
+          });
+        }
+      });
+    }
+
+    function setupOperationListeners() {
+      document.querySelectorAll('.operation-row').forEach((row) => {
+        const opName = row.dataset.op;
+        const startBtn = row.querySelector('button.start');
+        const finishBtn = row.querySelector('button.finish');
+        const timeSpan = row.querySelector('.time-display');
+        startBtn.addEventListener('click', () => {
+          if (!selectedFlightId) return;
+          const nowIso = new Date().toISOString();
+          update(ref(database, 'flightOperations/' + selectedFlightId + '/operations/' + opName), { startTime: nowIso })
+            .catch((error) => console.error('Error updating operation start', error));
+        });
+        finishBtn.addEventListener('click', () => {
+          if (!selectedFlightId) return;
+          const nowIso = new Date().toISOString();
+          update(ref(database, 'flightOperations/' + selectedFlightId + '/operations/' + opName), { finishTime: nowIso })
+            .catch((error) => console.error('Error updating operation finish', error));
+        });
+        // Allow editing of times by double clicking the display.  The user can input
+        // times in HHMM or HH:MM format.  Each time will be normalized to HH:MM.
+        timeSpan.addEventListener('dblclick', () => {
+          if (!selectedFlightId) return;
+          // Retrieve existing times from currentOpsData
+          const ops = currentOpsData.operations || {};
+          const times = ops[opName] || {};
+          const startIso = times.startTime || '';
+          const finishIso = times.finishTime || '';
+          // Determine base date for new times
+          let baseDate = '';
+          if (startIso) {
+            baseDate = startIso.split('T')[0];
+          } else if (finishIso) {
+            baseDate = finishIso.split('T')[0];
+          } else {
+            const flight = flightsData[selectedFlightId];
+            if (flight && (flight.sta || flight.std)) {
+              const d = new Date(flight.sta || flight.std);
+              baseDate = d.toISOString().split('T')[0];
+            } else {
+              baseDate = new Date().toISOString().split('T')[0];
+            }
+          }
+          // Current times for prompts (always 24h format)
+          const currentStart = startIso ? new Date(startIso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false}) : '';
+          const currentFinish = finishIso ? new Date(finishIso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false}) : '';
+          const inputStart = prompt('Edit start time (HHMM or HH:MM)', currentStart) || currentStart;
+          const inputFinish = prompt('Edit finish time (HHMM or HH:MM)', currentFinish) || currentFinish;
+          const normStart = normalizeTimeInput(inputStart);
+          const normFinish = normalizeTimeInput(inputFinish);
+          // Helper to combine date and time into ISO
+          function combine(dateStr, timeStr) {
+            if (!timeStr) return '';
+            const [hh, mm] = timeStr.split(':');
+            const dt = new Date(dateStr);
+            dt.setHours(parseInt(hh, 10), parseInt(mm, 10), 0, 0);
+            return dt.toISOString();
+          }
+          const newStartIso = normStart ? combine(baseDate, normStart) : '';
+          const newFinishIso = normFinish ? combine(baseDate, normFinish) : '';
+          const updateObj = {};
+          if (newStartIso) updateObj.startTime = newStartIso;
+          if (newFinishIso) updateObj.finishTime = newFinishIso;
+          if (Object.keys(updateObj).length > 0) {
+            update(ref(database, 'flightOperations/' + selectedFlightId + '/operations/' + opName), updateObj)
+              .catch((err) => console.error('Error updating times', err));
+          }
+        });
+      });
+    }
+
+    // Set up note editor for flight-specific notes
+    function setupNoteEditor() {
+      const editor = document.getElementById('note-editor');
+      const noteInput = document.getElementById('note-input');
+      const saveBtn = document.getElementById('save-note-btn');
+      const cancelBtn = document.getElementById('cancel-note-btn');
+      // Save the current text to Firebase and update the original notes
+      saveBtn.addEventListener('click', () => {
+        if (!selectedFlightId) return;
+        const text = noteInput.value;
+        update(ref(database, 'flightOperations/' + selectedFlightId), { remarks: text })
+          .then(() => {
+            // Persist the saved text as the new original value
+            originalNotes = text;
+          })
+          .catch((error) => console.error('Error updating remarks', error));
+      });
+      // Cancel editing: revert the textarea to the original value without saving
+      cancelBtn.addEventListener('click', () => {
+        noteInput.value = originalNotes || '';
+      });
+    }
+
+    function sendReport() {
+      if (!selectedFlightId) return;
+      const nowIso = new Date().toISOString();
+      update(ref(database, 'flightOperations/' + selectedFlightId), {
+        reportSubmitted: true,
+        reportSubmittedAt: nowIso
+      }).then(() => {
+        alert('Report sent successfully.');
+      }).catch((error) => console.error('Error sending report', error));
+    }
+
+    function setupReportButton() {
+      const btn = document.getElementById('send-report-btn');
+      btn.addEventListener('click', sendReport);
+    }
+
+    // Initialize listeners after DOM has loaded
+    setupChecklistListeners();
+    setupOperationListeners();
+    setupNoteEditor();
+    setupReportButton();
+
+    // Sorting: update sort key and re-render when selection changes
+    const sortSelect = document.getElementById('sort-select');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', (e) => {
+        sortKey = e.target.value || 'sta';
+        renderFlightList();
+      });
+    }
+
+    // Date filter: set default value to today's date and filter flights.  When
+    // the user changes the date, update the filter and re-render the list.
+    const dateFilter = document.getElementById('date-filter');
+    if (dateFilter) {
+      // Set the date picker to the current filter date when the page loads
+      dateFilter.value = filterDate;
+      dateFilter.addEventListener('change', (e) => {
+        filterDate = e.target.value || '';
+        // Re-render the flight list after updating the filter
+        renderFlightList();
+        // If a flight is currently selected and its date no longer matches the
+        // filter, clear the selection and hide details.
+        if (selectedFlightId) {
+          const flight = flightsData[selectedFlightId];
+          let flightDate = '';
+          if (flight && (flight.sta || flight.std)) {
+            const d = new Date(flight.sta || flight.std);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            flightDate = `${y}-${m}-${day}`;
+          }
+          if (filterDate && flightDate !== filterDate) {
+            selectedFlightId = null;
+            // Clear info panel fields
+            document.getElementById('info-flightNumber').textContent = '--';
+            document.getElementById('info-date').textContent = '--';
+            document.getElementById('info-std').textContent = '';
+            document.getElementById('info-sta').textContent = '';
+            document.getElementById('info-flightPlan').textContent = '--';
+            document.getElementById('info-slot').textContent = '--';
+            // Clear registration field
+            const regEl2 = document.getElementById('info-registration');
+            if (regEl2) {
+              regEl2.textContent = '--';
+            }
+            document.getElementById('airline-instructions').textContent = 'Select a flight to view airline instructions.';
+            document.getElementById('flight-notes-text').textContent = 'Select a flight to view notes.';
+          }
+        }
+      });
+    }
+</script>
+</body>
+</html>
