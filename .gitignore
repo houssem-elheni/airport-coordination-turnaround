@@ -1,0 +1,22 @@
+# --- Secrets / keys (NEVER commit) ---
+serviceAccountKey.json
+*serviceAccount*.json
+firebase-config.js
+.env
+.env.*
+
+# --- Firebase local cache ---
+.firebase/
+
+# --- Junk / local folders you showed ---
+trash/
+trash1/
+
+# --- Python ---
+__pycache__/
+*.pyc
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/

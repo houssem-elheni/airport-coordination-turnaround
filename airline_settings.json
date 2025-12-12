@@ -1,0 +1,109 @@
+{
+  "EZY": {
+    "name": "EASYJET",
+    "instructions": "",
+    "layoutUrl": "",
+    "types": {
+      "320": {
+        "instructions": "85pcs H1\nRest  H3\nwheelchairs  H4",
+        "layoutUrl": ""
+      },
+      "321": {
+        "instructions": "100 pcs H3\n50  pcs H4\nrest    H2",
+        "layoutUrl": ""
+      },
+      "319": {
+        "instructions": "85 PCS H4\n35 PCS H5\nREST   H1",
+        "layoutUrl": ""
+      }
+    }
+  },
+  "FB": {
+    "name": "bulgarian airlines",
+    "instructions": "",
+    "layoutUrl": "",
+    "types": {}
+  },
+  "BY": {
+    "name": "TUIFLY UK",
+    "instructions": "35pcs H2\n15pcs H4\nrest  H3",
+    "layoutUrl": "",
+    "types": {
+      "B738": {
+        "instructions": "35pcs H2\n15pcs H4\nrest  H3",
+        "layoutUrl": ""
+      },
+      "B737": {
+        "instructions": "",
+        "layoutUrl": ""
+      }
+    }
+  },
+  "LG": {
+    "name": "LUXAIR",
+    "instructions": "DEEP CLEANING",
+    "layoutUrl": "",
+    "types": {
+      "738": {
+        "instructions": "DEEP CLEANING\nPAX WEIGHT ...",
+        "layoutUrl": ""
+      },
+      "737": {
+        "instructions": "DEEP CLEANING",
+        "layoutUrl": ""
+      }
+    }
+  },
+  "ENT": {
+    "name": "ENTERAIR",
+    "instructions": "",
+    "layoutUrl": "",
+    "types": {
+      "738": {
+        "instructions": "Captain decides the loading and prepares the loadsheet.",
+        "layoutUrl": ""
+      },
+      "739": {
+        "instructions": "",
+        "layoutUrl": ""
+      }
+    }
+  },
+  "SV": {
+    "name": "SAUDI AL",
+    "instructions": "CONTAINERS AND PALLETS",
+    "layoutUrl": "",
+    "types": {
+      "330": {
+        "instructions": "COUNTAINERS AND PALLETS",
+        "layoutUrl": ""
+      }
+    }
+  },
+  "DS": {
+    "name": "EASYJET CH",
+    "instructions": "",
+    "layoutUrl": "",
+    "types": {
+      "A320": {
+        "instructions": "",
+        "layoutUrl": ""
+      }
+    }
+  },
+  "TB": {
+    "name": "JETAIRFLY",
+    "instructions": "MINI CLEANING",
+    "layoutUrl": "",
+    "types": {
+      "738": {
+        "instructions": "H2 35 PIECES\nH4 VIP BAGS\nH3 REST\n\nMINI CLEANING",
+        "layoutUrl": ""
+      },
+      "737": {
+        "instructions": "H4 VIP BAGS\nH3 REST\n\nMINI CLEANING",
+        "layoutUrl": ""
+      }
+    }
+  }
+}
